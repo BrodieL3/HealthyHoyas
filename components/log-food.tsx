@@ -184,18 +184,19 @@ export function LogFood() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleMealTypeSelect = (value: Meal["meal_type"]) => {
-    setMealType(value);
-    setStep(2);
-  };
-
+  // Update step order
   const handleLocationTypeSelect = (value: Meal["location_type"]) => {
     setLocationType(value);
     if (value === "Off-Campus") {
       setDiningHallId(null);
       setActiveTab("custom");
     }
-    setStep(3);
+    setStep(2); // Changed from 3 to 2
+  };
+
+  const handleMealTypeSelect = (value: Meal["meal_type"]) => {
+    setMealType(value);
+    setStep(3); // Changed from 2 to 3
   };
 
   const handleDiningHallSelect = (id: number) => {
@@ -332,14 +333,15 @@ export function LogFood() {
     }
   };
 
+  // Update goBack function to match new step order
   const goBack = () => {
     if (step > 1) {
       if (step === 4) {
         // If on food selection, go back to meal type
-        setStep(2);
+        setStep(3);
       } else if (step === 3) {
         // If on dining hall selection, go back to location type
-        setStep(1);
+        setStep(2);
       } else {
         // For other steps, just go back one step
         setStep(step - 1);
@@ -391,8 +393,8 @@ export function LogFood() {
     }
   };
 
-  // Update USDA search handler
-  const handleUSDASearch = async (query: string) => {
+  // Replace OpenFoodFacts search with USDA search
+  const handleCustomFoodSearch = async (query: string) => {
     if (!query) {
       setUsdaSearchResults([]);
       setShowUSDASuggestions(false);
@@ -640,7 +642,7 @@ export function LogFood() {
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
-                    handleUSDASearch(e.target.value);
+                    handleCustomFoodSearch(e.target.value);
                   }}
                   placeholder="Search USDA database or enter custom food..."
                 />
@@ -663,8 +665,7 @@ export function LogFood() {
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {food.foodNutrients.find(
-                              (n: { nutrientName: string }) =>
-                                n.nutrientName === "Energy"
+                              (n) => n.nutrientName === "Energy"
                             )?.value || 0}{" "}
                             cal
                           </span>

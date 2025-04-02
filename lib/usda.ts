@@ -4,10 +4,9 @@ const USDA_API_KEY = process.env.NEXT_PUBLIC_USDA_API_KEY;
 const USDA_BASE_URL = "https://api.nal.usda.gov/fdc/v1";
 
 export interface USDASearchResult {
-  fdcId: number;
+  fdcId: string | number;
   description: string;
   foodNutrients: {
-    nutrientId: number;
     nutrientName: string;
     value: number;
   }[];
@@ -39,27 +38,35 @@ export async function searchUSDAFoods(
   }
 }
 
-export function convertUSDAToFoodItem(
-  usdaFood: USDASearchResult
-): Omit<FoodItem, "id" | "created_at" | "updated_at"> {
-  const getNutrientValue = (nutrientName: string) => {
-    const nutrient = usdaFood.foodNutrients.find(
-      (n) => n.nutrientName.toLowerCase() === nutrientName.toLowerCase()
-    );
-    return nutrient?.value || 0;
-  };
-
+export function convertUSDAToFoodItem(usdaFood: USDASearchResult): FoodItem {
   return {
+    id:
+      typeof usdaFood.fdcId === "string"
+        ? parseInt(usdaFood.fdcId)
+        : usdaFood.fdcId,
     name: usdaFood.description,
-    calories: getNutrientValue("Energy"),
-    protein: getNutrientValue("Protein"),
-    carbs: getNutrientValue("Carbohydrate, by difference"),
-    fat: getNutrientValue("Total lipid (fat)"),
-    fiber: getNutrientValue("Fiber, total dietary"),
-    sugar: getNutrientValue("Sugars, total"),
-    sodium: getNutrientValue("Sodium, Na"),
-    description: "",
-    is_dining_hall_food: false,
+    calories:
+      usdaFood.foodNutrients.find((n) => n.nutrientName === "Energy")?.value ||
+      0,
+    protein:
+      usdaFood.foodNutrients.find((n) => n.nutrientName === "Protein")?.value ||
+      0,
+    carbs:
+      usdaFood.foodNutrients.find((n) => n.nutrientName === "Carbohydrate")
+        ?.value || 0,
+    fat:
+      usdaFood.foodNutrients.find((n) => n.nutrientName === "Fat")?.value || 0,
+    fiber:
+      usdaFood.foodNutrients.find((n) => n.nutrientName === "Fiber")?.value ||
+      0,
+    sugar:
+      usdaFood.foodNutrients.find((n) => n.nutrientName === "Sugar")?.value ||
+      0,
+    sodium:
+      usdaFood.foodNutrients.find((n) => n.nutrientName === "Sodium")?.value ||
+      0,
     dining_hall_id: undefined,
+    is_dining_hall_food: false,
+    created_at: new Date().toISOString(),
   };
 }
