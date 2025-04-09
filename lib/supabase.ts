@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Types for our data models
 export type DiningHall = {
@@ -11,6 +11,32 @@ export type DiningHall = {
   name: string;
   location: string;
   description?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type Station = {
+  id: number;
+  name: string;
+  dining_hall_id: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type MealPeriod = {
+  id: number;
+  name: string;
+  start_time: string;
+  end_time: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type DailyMenu = {
+  id: number;
+  dining_hall_id: number;
+  meal_period_id: number;
+  date: string;
   created_at?: string;
   updated_at?: string;
 };
@@ -25,9 +51,28 @@ export type FoodItem = {
   fiber?: number;
   sugar?: number;
   sodium?: number;
+  cholesterol?: number;
+  saturated_fat?: number;
+  trans_fat?: number;
+  calcium?: number;
+  iron?: number;
+  potassium?: number;
+  vitamin_d?: number;
   description?: string;
-  is_dining_hall_food: boolean;
-  dining_hall_id?: number;
+  serving_size?: string;
+  vegetarian?: boolean;
+  vegan?: boolean;
+  gluten_free?: boolean;
+  recipe_id?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type MenuItem = {
+  id: number;
+  daily_menu_id: number;
+  food_item_id: number;
+  station_id: number;
   created_at?: string;
   updated_at?: string;
 };
@@ -35,11 +80,7 @@ export type FoodItem = {
 export type Meal = {
   id: number;
   user_id: string;
-  meal_type: "Breakfast" | "Lunch" | "Dinner" | "Snack";
-  location_type: "Dining Hall" | "Off-Campus";
-  dining_hall_id?: number;
-  meal_date: string;
-  meal_time: string;
+  daily_menu_id?: number;
   notes?: string;
   created_at?: string;
   updated_at?: string;
@@ -54,8 +95,11 @@ export type MealFoodItem = {
   updated_at?: string;
 };
 
-export type MealWithFoodItems = Meal & {
-  dining_hall?: DiningHall;
+export type MealWithDetails = Meal & {
+  daily_menu?: DailyMenu & {
+    dining_hall: DiningHall;
+    meal_period: MealPeriod;
+  };
   food_items: (FoodItem & { quantity: number })[];
 };
 
@@ -67,9 +111,6 @@ export type DailyNutritionSummary = {
   total_fat: number;
 };
 
-// Mock user ID for demo purposes
-export const MOCK_USER_ID = "00000000-0000-0000-0000-000000000001";
-
 // API functions
 export async function getDiningHalls(): Promise<DiningHall[]> {
   try {
@@ -78,11 +119,7 @@ export async function getDiningHalls(): Promise<DiningHall[]> {
       .select("*")
       .order("name");
 
-    if (error) {
-      console.error("Error fetching dining halls:", error);
-      return [];
-    }
-
+    if (error) throw error;
     return data || [];
   } catch (error) {
     console.error("Error fetching dining halls:", error);
@@ -90,25 +127,106 @@ export async function getDiningHalls(): Promise<DiningHall[]> {
   }
 }
 
-export async function getFoodsByDiningHall(
-  diningHallId: number
+export async function getMealPeriods(): Promise<MealPeriod[]> {
+  try {
+    const { data, error } = await supabase
+      .from("meal_periods")
+      .select("*")
+      .order("start_time");
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching meal periods:", error);
+    return [];
+  }
+}
+
+export async function getStations(diningHallId: number): Promise<Station[]> {
+  try {
+    const { data, error } = await supabase
+      .from("stations")
+      .select("*")
+      .eq("dining_hall_id", diningHallId)
+      .order("name");
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching stations:", error);
+    return [];
+  }
+}
+
+export async function getDailyMenus(
+  diningHallId: number,
+  date: string
+): Promise<(DailyMenu & { meal_period: MealPeriod })[]> {
+  try {
+    const { data, error } = await supabase
+      .from("daily_menus")
+      .select(
+        `
+        *,
+        meal_period:meal_periods(*)
+      `
+      )
+      .eq("dining_hall_id", diningHallId)
+      .eq("date", date);
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching daily menus:", error);
+    return [];
+  }
+}
+
+export async function getMenuItems(
+  dailyMenuId: number
+): Promise<(MenuItem & { food_item: FoodItem; station: Station })[]> {
+  try {
+    const { data, error } = await supabase
+      .from("menu_items")
+      .select(
+        `
+        *,
+        food_item:food_items!food_item_id(*),
+        station:stations!station_id(*)
+      `
+      )
+      .eq("daily_menu_id", dailyMenuId);
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching menu items:", error);
+    return [];
+  }
+}
+
+export async function getFoodsByDailyMenu(
+  dailyMenuId: number
 ): Promise<FoodItem[]> {
   try {
     const { data, error } = await supabase
-      .from("food_items")
-      .select("*")
-      .eq("dining_hall_id", diningHallId)
-      .eq("is_dining_hall_food", true)
-      .order("name");
+      .from("menu_items")
+      .select(
+        `
+        food_items(*)
+      `
+      )
+      .eq("daily_menu_id", dailyMenuId);
 
-    if (error) {
-      console.error("Error fetching food items:", error);
-      return [];
-    }
+    if (error) throw error;
 
-    return data || [];
+    // Extract and flatten the food items from the result
+    const foodItems = data?.flatMap(
+      (item) => item.food_items || []
+    ) as FoodItem[];
+    return foodItems;
   } catch (error) {
-    console.error("Error fetching food items:", error);
+    console.error("Error fetching foods by daily menu:", error);
     return [];
   }
 }
@@ -118,14 +236,10 @@ export async function getCommonFoodItems(): Promise<FoodItem[]> {
     const { data, error } = await supabase
       .from("food_items")
       .select("*")
-      .eq("is_dining_hall_food", false)
+      .is("is_dining_hall_food", false)
       .order("name");
 
-    if (error) {
-      console.error("Error fetching common food items:", error);
-      return [];
-    }
-
+    if (error) throw error;
     return data || [];
   } catch (error) {
     console.error("Error fetching common food items:", error);
@@ -134,7 +248,11 @@ export async function getCommonFoodItems(): Promise<FoodItem[]> {
 }
 
 export async function createMeal(
-  meal: Omit<Meal, "id" | "created_at" | "updated_at">,
+  meal: {
+    user_id: string;
+    daily_menu_id?: number;
+    notes?: string;
+  },
   foodItems: { food_item_id: number; quantity: number }[]
 ): Promise<number | null> {
   try {
@@ -145,10 +263,7 @@ export async function createMeal(
       .select("id")
       .single();
 
-    if (mealError) {
-      console.error("Error creating meal:", mealError);
-      return null;
-    }
+    if (mealError) throw mealError;
 
     const mealId = mealData.id;
 
@@ -163,11 +278,7 @@ export async function createMeal(
       .from("meal_food_items")
       .insert(mealFoodItems);
 
-    if (foodItemsError) {
-      console.error("Error adding food items to meal:", foodItemsError);
-      // Consider rolling back the meal insertion here
-      return null;
-    }
+    if (foodItemsError) throw foodItemsError;
 
     return mealId;
   } catch (error) {
@@ -179,7 +290,7 @@ export async function createMeal(
 export async function getUserMeals(
   userId: string,
   limit = 10
-): Promise<MealWithFoodItems[]> {
+): Promise<MealWithDetails[]> {
   try {
     // First get the meals
     const { data: meals, error: mealsError } = await supabase
@@ -187,25 +298,25 @@ export async function getUserMeals(
       .select(
         `
         *,
-        dining_hall:dining_halls(*)
+        daily_menu:daily_menus(
+          *,
+          dining_hall:dining_halls(*),
+          meal_period:meal_periods(*)
+        )
       `
       )
       .eq("user_id", userId)
-      .order("meal_date", { ascending: false })
-      .order("meal_time", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(limit);
 
-    if (mealsError) {
-      console.error("Error fetching meals:", mealsError);
-      return [];
-    }
+    if (mealsError) throw mealsError;
 
     if (!meals || meals.length === 0) {
       return [];
     }
 
     // For each meal, get the food items
-    const mealsWithFoodItems: MealWithFoodItems[] = await Promise.all(
+    const mealsWithFoodItems: MealWithDetails[] = await Promise.all(
       meals.map(async (meal) => {
         const { data: mealFoodItems, error: mfError } = await supabase
           .from("meal_food_items")
@@ -217,13 +328,7 @@ export async function getUserMeals(
           )
           .eq("meal_id", meal.id);
 
-        if (mfError) {
-          console.error(
-            `Error fetching food items for meal ${meal.id}:`,
-            mfError
-          );
-          return { ...meal, food_items: [] };
-        }
+        if (mfError) throw mfError;
 
         const foodItems =
           mealFoodItems?.map((mfi) => ({
@@ -247,31 +352,53 @@ export async function getDailyNutritionSummary(
   date: string
 ): Promise<DailyNutritionSummary | null> {
   try {
-    const { data, error } = await supabase
-      .from("daily_nutrition_summary")
-      .select("*")
+    // We'll calculate this from meals rather than a separate table
+    const { data: meals, error } = await supabase
+      .from("meals")
+      .select(
+        `
+        id,
+        meal_food_items:meal_food_items(
+          quantity,
+          food_items:food_items(calories, protein, carbs, fat)
+        ),
+        daily_menu:daily_menus(date)
+      `
+      )
       .eq("user_id", userId)
-      .eq("meal_date", date)
-      .single();
+      .eq("daily_menu.date", date);
 
-    if (error) {
-      if (error.code === "PGRST116") {
-        // No data found for this date
-        return {
-          meal_date: date,
-          total_calories: 0,
-          total_protein: 0,
-          total_carbs: 0,
-          total_fat: 0,
-        };
-      }
-      console.error("Error fetching daily nutrition summary:", error);
-      return null;
-    }
+    if (error) throw error;
 
-    return data;
+    // Calculate nutrition totals
+    const summary = {
+      meal_date: date,
+      total_calories: 0,
+      total_protein: 0,
+      total_carbs: 0,
+      total_fat: 0,
+    };
+
+    meals?.forEach((meal) => {
+      meal.meal_food_items?.forEach((item) => {
+        const quantity = item.quantity || 0;
+        // Fix the food_item access - it's the first item in an array
+        const foodItem = Array.isArray(item.food_items)
+          ? item.food_items[0]
+          : item.food_items;
+
+        summary.total_calories +=
+          ((foodItem?.calories as number) || 0) * quantity;
+        summary.total_protein +=
+          ((foodItem?.protein as number) || 0) * quantity;
+        summary.total_carbs += ((foodItem?.carbs as number) || 0) * quantity;
+        summary.total_fat += ((foodItem?.fat as number) || 0) * quantity;
+      });
+    });
+
+    return summary;
   } catch (error) {
-    console.error("Error fetching daily nutrition summary:", error);
+    console.error("Error calculating daily nutrition summary:", error);
     return null;
   }
 }
@@ -286,14 +413,20 @@ export async function createCustomFoodItem(
       .select()
       .single();
 
-    if (error) {
-      console.error("Error creating custom food item:", error);
-      return null;
-    }
-
+    if (error) throw error;
     return data;
   } catch (error) {
     console.error("Error creating custom food item:", error);
     return null;
   }
+}
+
+// Helper function to get current user (replace MOCK_USER_ID)
+export async function getCurrentUser() {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) {
+    console.error("Error getting current user:", error);
+    return null;
+  }
+  return data?.user || null;
 }

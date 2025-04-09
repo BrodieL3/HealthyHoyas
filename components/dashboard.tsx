@@ -1,53 +1,86 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { UtensilsCrossed, Weight, Footprints, Moon, ArrowRight } from "lucide-react"
-import { MacroChart } from "@/components/macro-chart"
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  UtensilsCrossed,
+  Weight,
+  Footprints,
+  Moon,
+  ArrowRight,
+} from "lucide-react";
+import { MacroChart } from "@/components/macro-chart";
 import {
   getUserMeals,
   getDailyNutritionSummary,
-  MOCK_USER_ID,
-  type MealWithFoodItems,
+  getCurrentUser,
+  type MealWithDetails,
   type DailyNutritionSummary,
-} from "@/lib/supabase"
-import { format, parseISO } from "date-fns"
+} from "@/lib/supabase";
+import { format, parseISO } from "date-fns";
 
 export function Dashboard() {
-  const [recentMeals, setRecentMeals] = useState<MealWithFoodItems[]>([])
-  const [nutritionSummary, setNutritionSummary] = useState<DailyNutritionSummary | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [recentMeals, setRecentMeals] = useState<MealWithDetails[]>([]);
+  const [nutritionSummary, setNutritionSummary] =
+    useState<DailyNutritionSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
+  // First get the user ID
+  useEffect(() => {
+    async function fetchUser() {
+      const user = await getCurrentUser();
+      if (user) {
+        setUserId(user.id);
+      }
+    }
+    fetchUser();
+  }, []);
+
+  // Then fetch data once we have the user ID
   useEffect(() => {
     async function fetchData() {
-      setIsLoading(true)
+      if (!userId) return;
+
+      setIsLoading(true);
       try {
         // Get today's date in YYYY-MM-DD format
-        const today = format(new Date(), "yyyy-MM-dd")
+        const today = format(new Date(), "yyyy-MM-dd");
 
         // Fetch recent meals
-        const meals = await getUserMeals(MOCK_USER_ID, 5)
-        setRecentMeals(meals)
+        const meals = await getUserMeals(userId, 5);
+        setRecentMeals(meals);
 
         // Fetch nutrition summary for today
-        const summary = await getDailyNutritionSummary(MOCK_USER_ID, today)
-        setNutritionSummary(summary)
+        const summary = await getDailyNutritionSummary(userId, today);
+        setNutritionSummary(summary);
       } catch (error) {
-        console.error("Error fetching dashboard data:", error)
+        console.error("Error fetching dashboard data:", error);
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
     }
 
-    fetchData()
-  }, [])
+    if (userId) {
+      fetchData();
+    }
+  }, [userId]);
 
   // Calculate remaining calories
-  const dailyCalorieGoal = 2000
-  const consumedCalories = nutritionSummary?.total_calories || 0
-  const remainingCalories = dailyCalorieGoal - consumedCalories
-  const caloriePercentage = Math.min(100, (consumedCalories / dailyCalorieGoal) * 100)
+  const dailyCalorieGoal = 2000;
+  const consumedCalories = nutritionSummary?.total_calories || 0;
+  const remainingCalories = dailyCalorieGoal - consumedCalories;
+  const caloriePercentage = Math.min(
+    100,
+    (consumedCalories / dailyCalorieGoal) * 100
+  );
 
   // Format macros for the chart
   const macroData = [
@@ -69,29 +102,42 @@ export function Dashboard() {
       goal: 65,
       color: "#eab308",
     },
-  ]
+  ];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Daily Nutrition Summary</h1>
-        <div className="text-sm text-muted-foreground">{format(new Date(), "EEEE, MMMM d, yyyy")}</div>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Daily Nutrition Summary
+        </h1>
+        <div className="text-sm text-muted-foreground">
+          {format(new Date(), "EEEE, MMMM d, yyyy")}
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Calories</CardTitle>
-            <CardDescription>Daily Goal: {dailyCalorieGoal.toLocaleString()} kcal</CardDescription>
+            <CardDescription>
+              Daily Goal: {dailyCalorieGoal.toLocaleString()} kcal
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{Math.round(consumedCalories).toLocaleString()}</div>
+            <div className="text-3xl font-bold">
+              {Math.round(consumedCalories).toLocaleString()}
+            </div>
             <div className="mt-1 h-2 w-full rounded-full bg-muted">
-              <div className="h-full rounded-full bg-primary" style={{ width: `${caloriePercentage}%` }}></div>
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{ width: `${caloriePercentage}%` }}
+              ></div>
             </div>
             <div className="mt-1 text-xs text-muted-foreground">
               {remainingCalories > 0
-                ? `${Math.round(remainingCalories).toLocaleString()} kcal remaining`
+                ? `${Math.round(
+                    remainingCalories
+                  ).toLocaleString()} kcal remaining`
                 : "Daily goal reached"}
             </div>
           </CardContent>
@@ -145,7 +191,9 @@ export function Dashboard() {
       <div className="space-y-4">
         {isLoading ? (
           <Card>
-            <CardContent className="p-6 text-center text-muted-foreground">Loading recent meals...</CardContent>
+            <CardContent className="p-6 text-center text-muted-foreground">
+              Loading recent meals...
+            </CardContent>
           </Card>
         ) : recentMeals.length === 0 ? (
           <Card>
@@ -155,43 +203,72 @@ export function Dashboard() {
             </CardContent>
           </Card>
         ) : (
-          recentMeals.map((meal) => (
-            <Card key={meal.id}>
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-center">
-                  <CardTitle className="text-base flex items-center">
-                    <UtensilsCrossed className="mr-2 h-4 w-4" />
-                    {meal.meal_type}
-                    {meal.location_type === "Dining Hall" && meal.dining_hall && (
-                      <span className="ml-2 text-sm font-normal text-muted-foreground">at {meal.dining_hall.name}</span>
-                    )}
-                  </CardTitle>
-                  <span className="text-sm text-muted-foreground">
-                    {format(parseISO(meal.meal_date), "MMM d")} • {meal.meal_time.substring(0, 5)}
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-1">
-                  {meal.food_items.map((food, index) => (
-                    <div key={index} className="flex justify-between text-sm">
-                      <span>
-                        {food.name} {food.quantity !== 1 && `(${food.quantity}x)`}
-                      </span>
-                      <span className="text-muted-foreground">{Math.round(food.calories * food.quantity)} cal</span>
-                    </div>
-                  ))}
-                </div>
+          recentMeals.map((meal) => {
+            // Get the meal period name
+            const mealPeriodName = meal.daily_menu?.meal_period?.name || "Meal";
+            // Get dining hall name if it exists
+            const diningHallName = meal.daily_menu?.dining_hall?.name;
+            // Get creation date and format it
+            const createdAt = meal.created_at
+              ? format(parseISO(meal.created_at), "MMM d")
+              : "";
+            // Get date from daily menu if available
+            const menuDate = meal.daily_menu?.date
+              ? format(parseISO(meal.daily_menu.date), "MMM d")
+              : "";
+            // Use menu date if available, otherwise fall back to meal creation date
+            const displayDate = menuDate || createdAt;
 
-                <div className="flex justify-between mt-4 pt-2 border-t text-sm font-medium">
-                  <span>Total</span>
-                  <span>
-                    {Math.round(meal.food_items.reduce((sum, food) => sum + food.calories * food.quantity, 0))} calories
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+            return (
+              <Card key={meal.id}>
+                <CardHeader className="pb-2">
+                  <div className="flex justify-between items-center">
+                    <CardTitle className="text-base flex items-center">
+                      <UtensilsCrossed className="mr-2 h-4 w-4" />
+                      {mealPeriodName}
+                      {diningHallName && (
+                        <span className="ml-2 text-sm font-normal text-muted-foreground">
+                          at {diningHallName}
+                        </span>
+                      )}
+                    </CardTitle>
+                    <span className="text-sm text-muted-foreground">
+                      {displayDate}
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-1">
+                    {meal.food_items.map((food, index) => (
+                      <div key={index} className="flex justify-between text-sm">
+                        <span>
+                          {food.name}{" "}
+                          {food.quantity !== 1 && `(${food.quantity}x)`}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {Math.round((food.calories || 0) * food.quantity)} cal
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex justify-between mt-4 pt-2 border-t text-sm font-medium">
+                    <span>Total</span>
+                    <span>
+                      {Math.round(
+                        meal.food_items.reduce(
+                          (sum, food) =>
+                            sum + (food.calories || 0) * food.quantity,
+                          0
+                        )
+                      )}{" "}
+                      calories
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
 
@@ -246,6 +323,5 @@ export function Dashboard() {
         </Card>
       </div>
     </div>
-  )
+  );
 }
-

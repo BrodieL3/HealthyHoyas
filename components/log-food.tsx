@@ -19,14 +19,18 @@ import {
 } from "lucide-react";
 import {
   getDiningHalls,
-  getFoodsByDiningHall,
+  getMealPeriods,
+  getDailyMenus,
+  getFoodsByDailyMenu,
   getCommonFoodItems,
   createMeal,
   createCustomFoodItem,
-  MOCK_USER_ID,
+  getCurrentUser,
   type DiningHall,
   type FoodItem,
   type Meal,
+  type MealPeriod,
+  type DailyMenu,
 } from "@/lib/supabase";
 import {
   Command,
@@ -55,17 +59,24 @@ export function LogFood() {
   // Form state
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
-  const [mealType, setMealType] = useState<Meal["meal_type"]>("Breakfast");
-  const [locationType, setLocationType] =
-    useState<Meal["location_type"]>("Dining Hall");
+  const [mealPeriod, setMealPeriod] = useState<MealPeriod | null>(null);
+  const [locationType, setLocationType] = useState<
+    "Dining Hall" | "Off-Campus"
+  >("Dining Hall");
   const [diningHallId, setDiningHallId] = useState<number | null>(null);
+  const [dailyMenuId, setDailyMenuId] = useState<number | null>(null);
   const [mealDate, setMealDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [mealTime, setMealTime] = useState(format(new Date(), "HH:mm"));
   const [mealNotes, setMealNotes] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
 
   // Data state
   const [diningHalls, setDiningHalls] = useState<DiningHall[]>([]);
-  const [diningHallFoods, setDiningHallFoods] = useState<FoodItem[]>([]);
+  const [mealPeriods, setMealPeriods] = useState<MealPeriod[]>([]);
+  const [dailyMenus, setDailyMenus] = useState<
+    (DailyMenu & { meal_period: MealPeriod })[]
+  >([]);
+  const [menuFoods, setMenuFoods] = useState<FoodItem[]>([]);
   const [commonFoods, setCommonFoods] = useState<FoodItem[]>([]);
   const [selectedFoodItems, setSelectedFoodItems] = useState<
     (FoodItem & { quantity: number })[]
@@ -91,8 +102,7 @@ export function LogFood() {
     sugar: 0,
     sodium: 0,
     description: "",
-    is_dining_hall_food: false,
-    dining_hall_id: undefined,
+    // removed is_dining_hall_food as it doesn't appear to be in schema
   });
 
   // USDA state
@@ -112,11 +122,23 @@ export function LogFood() {
     useState(false);
   const [showUSDASuggestions, setShowUSDASuggestions] = useState(false);
 
-  // Fetch dining halls on component mount
+  // Get current user on component mount
   useEffect(() => {
-    async function fetchDiningHalls() {
+    async function fetchUser() {
+      const user = await getCurrentUser();
+      if (user) {
+        setUserId(user.id);
+      }
+    }
+    fetchUser();
+  }, []);
+
+  // Fetch dining halls and meal periods on component mount
+  useEffect(() => {
+    async function fetchInitialData() {
       setIsLoading(true);
       try {
+        // Fetch dining halls
         const halls = await getDiningHalls();
         setDiningHalls(halls);
 
@@ -124,34 +146,62 @@ export function LogFood() {
         if (halls.length > 0) {
           setDiningHallId(halls[0].id);
         }
+
+        // Fetch meal periods
+        const periods = await getMealPeriods();
+        setMealPeriods(periods);
+
+        // Set default meal period if available
+        if (periods.length > 0) {
+          setMealPeriod(periods[0]);
+        }
       } catch (error) {
-        console.error("Error fetching dining halls:", error);
+        console.error("Error fetching initial data:", error);
       } finally {
         setIsLoading(false);
       }
     }
 
-    fetchDiningHalls();
+    fetchInitialData();
   }, []);
 
-  // Fetch food items when a dining hall is selected
+  // Fetch daily menus when dining hall and date are selected
   useEffect(() => {
-    async function fetchFoodItems() {
-      if (diningHallId) {
+    async function fetchDailyMenus() {
+      if (diningHallId && mealDate) {
         setIsLoading(true);
         try {
-          const foods = await getFoodsByDiningHall(diningHallId);
-          setDiningHallFoods(foods);
+          const menus = await getDailyMenus(diningHallId, mealDate);
+          setDailyMenus(menus);
         } catch (error) {
-          console.error("Error fetching food items:", error);
+          console.error("Error fetching daily menus:", error);
         } finally {
           setIsLoading(false);
         }
       }
     }
 
-    fetchFoodItems();
-  }, [diningHallId]);
+    fetchDailyMenus();
+  }, [diningHallId, mealDate]);
+
+  // Fetch food items when a daily menu is selected
+  useEffect(() => {
+    async function fetchMenuFoods() {
+      if (dailyMenuId) {
+        setIsLoading(true);
+        try {
+          const foods = await getFoodsByDailyMenu(dailyMenuId);
+          setMenuFoods(foods);
+        } catch (error) {
+          console.error("Error fetching menu foods:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    fetchMenuFoods();
+  }, [dailyMenuId]);
 
   // Fetch common food items
   useEffect(() => {
@@ -185,18 +235,30 @@ export function LogFood() {
   }, []);
 
   // Update step order
-  const handleLocationTypeSelect = (value: Meal["location_type"]) => {
+  const handleLocationTypeSelect = (value: "Dining Hall" | "Off-Campus") => {
     setLocationType(value);
     if (value === "Off-Campus") {
       setDiningHallId(null);
+      setDailyMenuId(null);
       setActiveTab("custom");
     }
-    setStep(2); // Changed from 3 to 2
+    setStep(2);
   };
 
-  const handleMealTypeSelect = (value: Meal["meal_type"]) => {
-    setMealType(value);
-    setStep(3); // Changed from 2 to 3
+  const handleMealPeriodSelect = (period: MealPeriod) => {
+    setMealPeriod(period);
+
+    // If we already have a dining hall, find the daily menu for this meal period
+    if (diningHallId && dailyMenus.length > 0) {
+      const matchingMenu = dailyMenus.find(
+        (menu) => menu.meal_period.id === period.id
+      );
+      if (matchingMenu) {
+        setDailyMenuId(matchingMenu.id);
+      }
+    }
+
+    setStep(3);
   };
 
   const handleDiningHallSelect = (id: number) => {
@@ -271,8 +333,6 @@ export function LogFood() {
           sugar: 0,
           sodium: 0,
           description: "",
-          is_dining_hall_food: false,
-          dining_hall_id: undefined,
         });
         setEditingCustomFood(false);
       }
@@ -284,6 +344,11 @@ export function LogFood() {
   };
 
   const handleSubmit = async () => {
+    if (!userId) {
+      alert("You must be logged in to log a meal");
+      return;
+    }
+
     if (selectedFoodItems.length === 0) {
       alert("Please add at least one food item to your meal");
       return;
@@ -293,12 +358,8 @@ export function LogFood() {
     try {
       // Create the meal object
       const meal: Omit<Meal, "id" | "created_at" | "updated_at"> = {
-        user_id: MOCK_USER_ID,
-        meal_type: mealType,
-        location_type: locationType,
-        dining_hall_id: diningHallId || undefined,
-        meal_date: mealDate,
-        meal_time: mealTime,
+        user_id: userId,
+        daily_menu_id: dailyMenuId || undefined,
         notes: mealNotes || undefined,
       };
 
@@ -317,9 +378,10 @@ export function LogFood() {
           // Reset the form
           setSubmitted(false);
           setStep(1);
-          setMealType("Breakfast");
+          setMealPeriod(mealPeriods[0] || null);
           setLocationType("Dining Hall");
           setDiningHallId(diningHalls[0]?.id || null);
+          setDailyMenuId(null);
           setMealDate(format(new Date(), "yyyy-MM-dd"));
           setMealTime(format(new Date(), "HH:mm"));
           setMealNotes("");
@@ -353,17 +415,17 @@ export function LogFood() {
   const totalNutrition = selectedFoodItems.reduce(
     (acc, item) => {
       return {
-        calories: acc.calories + item.calories * item.quantity,
-        protein: acc.protein + item.protein * item.quantity,
-        carbs: acc.carbs + item.carbs * item.quantity,
-        fat: acc.fat + item.fat * item.quantity,
+        calories: acc.calories + (item.calories || 0) * item.quantity,
+        protein: acc.protein + (item.protein || 0) * item.quantity,
+        carbs: acc.carbs + (item.carbs || 0) * item.quantity,
+        fat: acc.fat + (item.fat || 0) * item.quantity,
       };
     },
     { calories: 0, protein: 0, carbs: 0, fat: 0 }
   );
 
   // Filter food items based on search query
-  const filteredDiningHallFoods = diningHallFoods.filter((food) =>
+  const filteredMenuFoods = menuFoods.filter((food) =>
     food.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -381,7 +443,7 @@ export function LogFood() {
 
     setIsSearchingDiningHall(true);
     try {
-      const results = diningHallFoods.filter((food) =>
+      const results = menuFoods.filter((food) =>
         food.name.toLowerCase().includes(query.toLowerCase())
       );
       setDiningHallSearchResults(results);
@@ -393,7 +455,7 @@ export function LogFood() {
     }
   };
 
-  // Replace OpenFoodFacts search with USDA search
+  // USDA search
   const handleCustomFoodSearch = async (query: string) => {
     if (!query) {
       setUsdaSearchResults([]);
@@ -480,7 +542,7 @@ export function LogFood() {
     </div>
   );
 
-  // Render step 2: Meal type selection
+  // Render step 2: Meal period selection
   const renderStep2 = () => (
     <div className="space-y-4">
       <div className="flex items-center mb-6">
@@ -489,7 +551,7 @@ export function LogFood() {
           Back
         </Button>
         <div>
-          <h2 className="text-xl font-semibold">Select Meal Type</h2>
+          <h2 className="text-xl font-semibold">Select Meal Period</h2>
           <p className="text-muted-foreground">
             Choose which meal you're logging
           </p>
@@ -497,34 +559,19 @@ export function LogFood() {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <Button
-          variant="outline"
-          className="flex flex-col items-center justify-center h-auto py-4 border-2"
-          onClick={() => handleMealTypeSelect("Breakfast")}
-        >
-          <span className="text-base font-medium">Breakfast</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="flex flex-col items-center justify-center h-auto py-4 border-2"
-          onClick={() => handleMealTypeSelect("Lunch")}
-        >
-          <span className="text-base font-medium">Lunch</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="flex flex-col items-center justify-center h-auto py-4 border-2"
-          onClick={() => handleMealTypeSelect("Dinner")}
-        >
-          <span className="text-base font-medium">Dinner</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="flex flex-col items-center justify-center h-auto py-4 border-2"
-          onClick={() => handleMealTypeSelect("Snack")}
-        >
-          <span className="text-base font-medium">Snack</span>
-        </Button>
+        {mealPeriods.map((period) => (
+          <Button
+            key={period.id}
+            variant="outline"
+            className="flex flex-col items-center justify-center h-auto py-4 border-2"
+            onClick={() => handleMealPeriodSelect(period)}
+          >
+            <span className="text-base font-medium">{period.name}</span>
+            <span className="text-xs text-muted-foreground">
+              {period.start_time} - {period.end_time}
+            </span>
+          </Button>
+        ))}
       </div>
     </div>
   );
@@ -571,6 +618,8 @@ export function LogFood() {
       (hall) => hall.id === diningHallId
     );
 
+    const currentMenu = dailyMenus.find((menu) => menu.id === dailyMenuId);
+
     return (
       <div className="space-y-4">
         <div className="flex items-center mb-4">
@@ -581,9 +630,9 @@ export function LogFood() {
           <div>
             <h2 className="text-xl font-semibold">Add Food Items</h2>
             <p className="text-muted-foreground">
-              {locationType === "Dining Hall" && currentDiningHall
-                ? `${currentDiningHall.name} - ${mealType}`
-                : `Off-Campus ${mealType}`}
+              {locationType === "Dining Hall" && currentDiningHall && mealPeriod
+                ? `${currentDiningHall.name} - ${mealPeriod.name}`
+                : `Off-Campus ${mealPeriod?.name || ""}`}
             </p>
           </div>
         </div>
@@ -622,8 +671,8 @@ export function LogFood() {
                           >
                             <span className="font-medium">{food.name}</span>
                             <span className="text-xs text-muted-foreground">
-                              {food.calories} cal | P: {food.protein}g | C:{" "}
-                              {food.carbs}g | F: {food.fat}g
+                              {food.calories || 0} cal | P: {food.protein || 0}g
+                              | C: {food.carbs || 0}g | F: {food.fat || 0}g
                             </span>
                           </div>
                         ))}
@@ -701,10 +750,11 @@ export function LogFood() {
                       <div className="flex-1">
                         <div className="font-medium">{food.name}</div>
                         <div className="text-xs text-muted-foreground">
-                          {Math.round(food.calories * food.quantity)} cal | P:{" "}
-                          {(food.protein * food.quantity).toFixed(1)}g | C:{" "}
-                          {(food.carbs * food.quantity).toFixed(1)}g | F:{" "}
-                          {(food.fat * food.quantity).toFixed(1)}g
+                          {Math.round((food.calories || 0) * food.quantity)} cal
+                          | P:{" "}
+                          {((food.protein || 0) * food.quantity).toFixed(1)}g |
+                          C: {((food.carbs || 0) * food.quantity).toFixed(1)}g |
+                          F: {((food.fat || 0) * food.quantity).toFixed(1)}g
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -828,7 +878,7 @@ export function LogFood() {
           <Button
             onClick={handleSubmit}
             className="w-full mt-6"
-            disabled={selectedFoodItems.length === 0 || isLoading}
+            disabled={selectedFoodItems.length === 0 || isLoading || !userId}
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />

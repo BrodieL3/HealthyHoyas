@@ -1,25 +1,45 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { Home, UtensilsCrossed, Weight, SettingsIcon } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Home, UtensilsCrossed, Weight, SettingsIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  SignedIn,
+  SignedOut,
+  UserButton,
+  SignInButton,
+  SignUpButton,
+} from "@clerk/nextjs";
 
 interface LayoutProps {
-  children: React.ReactNode
-  activeTab: string
-  setActiveTab: (tab: string) => void
-  isMobile: boolean
+  children: React.ReactNode;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  isMobile: boolean;
 }
 
-export function Layout({ children, activeTab, setActiveTab, isMobile }: LayoutProps) {
+export function Layout({
+  children,
+  activeTab,
+  setActiveTab,
+  isMobile,
+}: LayoutProps) {
   const tabs = [
     { id: "dashboard", label: "Home", icon: <Home className="h-5 w-5" /> },
-    { id: "log-food", label: "Log Food", icon: <UtensilsCrossed className="h-5 w-5" /> },
+    {
+      id: "log-food",
+      label: "Log Food",
+      icon: <UtensilsCrossed className="h-5 w-5" />,
+    },
     { id: "weigh-in", label: "Weigh In", icon: <Weight className="h-5 w-5" /> },
-    { id: "settings", label: "Settings", icon: <SettingsIcon className="h-5 w-5" /> },
-  ]
+    {
+      id: "settings",
+      label: "Settings",
+      icon: <SettingsIcon className="h-5 w-5" />,
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -40,6 +60,15 @@ export function Layout({ children, activeTab, setActiveTab, isMobile }: LayoutPr
                 </Button>
               ))}
             </nav>
+            <div className="ml-auto">
+              <SignedIn>
+                <UserButton />
+              </SignedIn>
+              <SignedOut>
+                <SignInButton />
+                <SignUpButton />
+              </SignedOut>
+            </div>
           </div>
         </header>
       )}
@@ -48,7 +77,11 @@ export function Layout({ children, activeTab, setActiveTab, isMobile }: LayoutPr
 
       {isMobile && (
         <footer className="border-t bg-background">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full"
+          >
             <TabsList className="grid grid-cols-4 h-16">
               {tabs.map((tab) => (
                 <TabsTrigger
@@ -65,6 +98,5 @@ export function Layout({ children, activeTab, setActiveTab, isMobile }: LayoutPr
         </footer>
       )}
     </div>
-  )
+  );
 }
-
