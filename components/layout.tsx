@@ -1,10 +1,11 @@
 "use client"
 
 import type React from "react"
-
-import { Home, UtensilsCrossed, Weight, SettingsIcon } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Home, UtensilsCrossed, Weight, SettingsIcon, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { createClient } from "@/utils/supabase/client"
 
 interface LayoutProps {
   children: React.ReactNode
@@ -14,6 +15,14 @@ interface LayoutProps {
 }
 
 export function Layout({ children, activeTab, setActiveTab, isMobile }: LayoutProps) {
+  const router = useRouter()
+  const supabase = createClient()
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
   const tabs = [
     { id: "dashboard", label: "Home", icon: <Home className="h-5 w-5" /> },
     { id: "log-food", label: "Log Food", icon: <UtensilsCrossed className="h-5 w-5" /> },
@@ -25,21 +34,31 @@ export function Layout({ children, activeTab, setActiveTab, isMobile }: LayoutPr
     <div className="min-h-screen bg-background flex flex-col">
       {!isMobile && (
         <header className="border-b">
-          <div className="container flex h-16 items-center px-4">
-            <div className="mr-4 font-semibold text-lg">NutriTrack</div>
-            <nav className="flex items-center space-x-4 lg:space-x-6">
-              {tabs.map((tab) => (
-                <Button
-                  key={tab.id}
-                  variant={activeTab === tab.id ? "default" : "ghost"}
-                  onClick={() => setActiveTab(tab.id)}
-                  className="flex items-center gap-2"
-                >
-                  {tab.icon}
-                  {tab.label}
-                </Button>
-              ))}
-            </nav>
+          <div className="container flex h-16 items-center justify-between px-4">
+            <div className="flex items-center">
+              <div className="mr-4 font-semibold text-lg">NutriTrack</div>
+              <nav className="flex items-center space-x-4 lg:space-x-6">
+                {tabs.map((tab) => (
+                  <Button
+                    key={tab.id}
+                    variant={activeTab === tab.id ? "default" : "ghost"}
+                    onClick={() => setActiveTab(tab.id)}
+                    className="flex items-center gap-2"
+                  >
+                    {tab.icon}
+                    {tab.label}
+                  </Button>
+                ))}
+              </nav>
+            </div>
+            <Button
+              variant="ghost"
+              onClick={handleSignOut}
+              className="flex items-center gap-2"
+            >
+              <LogOut className="h-5 w-5" />
+              Sign Out
+            </Button>
           </div>
         </header>
       )}
