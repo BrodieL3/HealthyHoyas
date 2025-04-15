@@ -1,20 +1,33 @@
-import type { Metadata } from 'next'
-import './globals.css'
+"use client"
 
-export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.dev',
-}
+import { useState, useEffect } from 'react'
+import { Inter } from 'next/font/google'
+import { usePathname } from 'next/navigation'
+import './globals.css'
+import { Layout } from '@/components/layout'
+
+const inter = Inter({ subsets: ['latin'] })
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const [activeTab, setActiveTab] = useState("dashboard")
+  const pathname = usePathname()
+  
+  // Check if the current path is an auth page
+  const isAuthPage = pathname?.startsWith('/auth') || pathname === '/login'
+  
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={inter.className}>
+        {isAuthPage ? (
+          children
+        ) : (
+          children
+        )}
+      </body>
     </html>
   )
 }

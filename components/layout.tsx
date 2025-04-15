@@ -20,7 +20,7 @@ export function Layout({ children, activeTab, setActiveTab, isMobile }: LayoutPr
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    router.push('/login')
+    router.push('/auth/login')
   }
 
   const tabs = [

@@ -1,8 +1,8 @@
-import { redirect } from 'next/navigation'
-
 import { createClient } from '@/utils/supabase/server'
+import { redirect } from 'next/navigation'
+import { NutritionTracker } from '@/components/nutrition-tracker'
 
-export default async function PrivatePage() {
+export default async function ProtectedPage() {
   const supabase = await createClient()
 
   const { data, error } = await supabase.auth.getUser()
@@ -10,5 +10,5 @@ export default async function PrivatePage() {
     redirect('/login')
   }
 
-  return <p>Hello {data.user.email}</p>
+  return <NutritionTracker />
 }

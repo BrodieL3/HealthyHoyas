@@ -1,24 +1,33 @@
-"use client"
+import { NutritionTracker } from '@/components/nutrition-tracker'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 
-import { useState } from "react"
-import { useMediaQuery } from "@/hooks/use-mobile"
-import { Dashboard } from "@/components/dashboard"
-import { LogFood } from "@/components/log-food"
-import { WeighIn } from "@/components/weigh-in"
-import { Settings } from "@/components/settings"
-import { Layout } from "@/components/layout"
+export default async function Home() {
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+      },
+    }
+  )
 
-export default function NutritionTracker() {
-  const [activeTab, setActiveTab] = useState("dashboard")
-  const isMobile = useMediaQuery("(max-width: 768px)")
+  const { data: { user } } = await supabase.auth.getUser()
 
+  if (!user) {
+    redirect('/auth/login')
+  }
+
+  // If user is authenticated, show the dashboard or home page
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab} isMobile={isMobile}>
-      {activeTab === "dashboard" && <Dashboard />}
-      {activeTab === "log-food" && <LogFood />}
-      {activeTab === "weigh-in" && <WeighIn />}
-      {activeTab === "settings" && <Settings />}
-    </Layout>
+    <div className="min-h-screen">
+      <NutritionTracker />
+    </div>
   )
 }
 
