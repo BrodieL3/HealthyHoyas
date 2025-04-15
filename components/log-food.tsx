@@ -4,7 +4,7 @@ import type React from "react";
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +16,7 @@ import {
   Plus,
   Trash2,
   Save,
+  AlertCircle,
 } from "lucide-react";
 import {
   getDiningHalls,
@@ -23,7 +24,6 @@ import {
   getCommonFoodItems,
   createMeal,
   createCustomFoodItem,
-  MOCK_USER_ID,
   type DiningHall,
   type FoodItem,
   type Meal,
@@ -50,6 +50,8 @@ import {
   convertUSDAToFoodItem,
   type USDASearchResult,
 } from "@/lib/usda";
+import { createClient } from "@/utils/supabase/client";
+import { toast } from "sonner";
 
 export function LogFood() {
   // Form state
@@ -111,6 +113,9 @@ export function LogFood() {
   const [showDiningHallSuggestions, setShowDiningHallSuggestions] =
     useState(false);
   const [showUSDASuggestions, setShowUSDASuggestions] = useState(false);
+
+  // Error state
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch dining halls on component mount
   useEffect(() => {
@@ -283,55 +288,66 @@ export function LogFood() {
     }
   };
 
-  const handleSubmit = async () => {
-    if (selectedFoodItems.length === 0) {
-      alert("Please add at least one food item to your meal");
-      return;
-    }
-
-    setIsLoading(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!selectedFoodItems.length) return
+    
+    setIsLoading(true)
+    setError(null)
+    
     try {
-      // Create the meal object
-      const meal: Omit<Meal, "id" | "created_at" | "updated_at"> = {
-        user_id: MOCK_USER_ID,
-        meal_type: mealType,
-        location_type: locationType,
-        dining_hall_id: diningHallId || undefined,
-        meal_date: mealDate,
-        meal_time: mealTime,
-        notes: mealNotes || undefined,
-      };
-
-      // Create the food items array
-      const foodItems = selectedFoodItems.map((item) => ({
-        food_item_id: item.id,
-        quantity: item.quantity,
-      }));
-
-      // Create the meal with food items
-      const mealId = await createMeal(meal, foodItems);
-
-      if (mealId) {
-        setSubmitted(true);
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        setError("Please sign in to log your food")
+        setIsLoading(false)
+        return
+      }
+      
+      // Create a new food log entry
+      const { data, error } = await supabase
+        .from('user_food_logs')
+        .insert([
+          ...selectedFoodItems.map((item) => ({
+            user_id: user.id,
+            food_item_id: item.id,
+            meal_type: mealType,
+            date: new Date().toISOString().split('T')[0],
+            quantity: item.quantity
+          }))
+        ])
+        .select()
+      
+      if (error) {
+        console.error("Error logging food:", error)
+        setError("Failed to log food. Please try again.")
+        toast.error("Failed to log food. Please try again.")
+      } else {
+        setSubmitted(true)
+        setSelectedFoodItems([])
+        setMealType("Breakfast")
+        setLocationType("Dining Hall")
+        setDiningHallId(diningHalls[0]?.id || null)
+        setMealDate(format(new Date(), "yyyy-MM-dd"))
+        setMealTime(format(new Date(), "HH:mm"))
+        setMealNotes("")
+        
+        toast.success("Food logged successfully!")
+        
         setTimeout(() => {
-          // Reset the form
-          setSubmitted(false);
-          setStep(1);
-          setMealType("Breakfast");
-          setLocationType("Dining Hall");
-          setDiningHallId(diningHalls[0]?.id || null);
-          setMealDate(format(new Date(), "yyyy-MM-dd"));
-          setMealTime(format(new Date(), "HH:mm"));
-          setMealNotes("");
-          setSelectedFoodItems([]);
-        }, 2000);
+          setSubmitted(false)
+        }, 2000)
       }
     } catch (error) {
-      console.error("Error submitting meal:", error);
+      console.error("Error logging food:", error)
+      setError("An error occurred. Please try again.")
+      toast.error("An error occurred. Please try again.")
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   // Update goBack function to match new step order
   const goBack = () => {

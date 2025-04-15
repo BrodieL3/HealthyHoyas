@@ -2,28 +2,101 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { WeightChart } from "@/components/weight-chart"
-import { CheckCircle2 } from "lucide-react"
+import { CheckCircle2, AlertCircle } from "lucide-react"
+import { saveWeightEntry, getUserWeightEntries, type WeightEntry } from "@/lib/supabase"
+import { createClient } from "@/utils/supabase/client"
+import { toast } from "sonner"
 
 export function WeighIn() {
   const [submitted, setSubmitted] = useState(false)
   const [weight, setWeight] = useState("")
   const [syncHealth, setSyncHealth] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([])
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    async function fetchWeightEntries() {
+      try {
+        setError(null)
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (!user) {
+          setError("Please sign in to view your weight history")
+          return
+        }
+
+        const entries = await getUserWeightEntries(user.id)
+        setWeightEntries(entries)
+      } catch (error) {
+        console.error("Error fetching weight entries:", error)
+        setError("Failed to load weight history. Please try again later.")
+      }
+    }
+
+    fetchWeightEntries()
+  }, [])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Here you would normally save the data
-    setSubmitted(true)
-    setTimeout(() => {
-      setSubmitted(false)
-      setWeight("")
-    }, 2000)
+    
+    if (!weight) return
+    
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const weightValue = parseFloat(weight)
+      
+      if (isNaN(weightValue) || weightValue <= 0) {
+        setError("Please enter a valid weight value.")
+        setIsLoading(false)
+        return
+      }
+
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        setError("Please sign in to log your weight")
+        setIsLoading(false)
+        return
+      }
+      
+      const result = await saveWeightEntry(user.id, weightValue)
+      
+      if (result) {
+        setSubmitted(true)
+        setWeight("")
+        
+        // Refresh weight entries
+        const entries = await getUserWeightEntries(user.id)
+        setWeightEntries(entries)
+        
+        toast.success("Weight logged successfully!")
+        
+        setTimeout(() => {
+          setSubmitted(false)
+        }, 2000)
+      } else {
+        setError("Failed to log weight. Please try again.")
+        toast.error("Failed to log weight. Please try again.")
+      }
+    } catch (error) {
+      console.error("Error saving weight:", error)
+      setError("An error occurred. Please try again.")
+      toast.error("An error occurred. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -44,6 +117,13 @@ export function WeighIn() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-md">
+                  <AlertCircle className="h-5 w-5" />
+                  <p>{error}</p>
+                </div>
+              )}
+              
               <div className="space-y-2">
                 <Label htmlFor="weight">Current Weight</Label>
                 <div className="flex items-center space-x-2">
@@ -55,6 +135,9 @@ export function WeighIn() {
                     onChange={(e) => setWeight(e.target.value)}
                     required
                     className="flex-1"
+                    disabled={isLoading}
+                    min="0"
+                    step="0.1"
                   />
                   <span className="text-muted-foreground">lbs</span>
                 </div>
@@ -67,8 +150,8 @@ export function WeighIn() {
                 </Label>
               </div>
 
-              <Button type="submit" className="w-full">
-                Log Weight
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Logging..." : "Log Weight"}
               </Button>
             </form>
           )}
@@ -82,7 +165,7 @@ export function WeighIn() {
         </CardHeader>
         <CardContent>
           <div className="h-[200px]">
-            <WeightChart />
+            <WeightChart weightEntries={weightEntries} />
           </div>
         </CardContent>
       </Card>

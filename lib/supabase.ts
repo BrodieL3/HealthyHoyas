@@ -1,9 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { createClient } from "@/utils/supabase/client";
 
 // Types for our data models
 export type DiningHall = {
@@ -67,12 +62,18 @@ export type DailyNutritionSummary = {
   total_fat: number;
 };
 
-// Mock user ID for demo purposes
-export const MOCK_USER_ID = "00000000-0000-0000-0000-000000000001";
+export type WeightEntry = {
+  id: string;
+  user_id: string;
+  weight: number;
+  date: string;
+  created_at: string;
+};
 
 // API functions
 export async function getDiningHalls(): Promise<DiningHall[]> {
   try {
+    const supabase = createClient();
     const { data, error } = await supabase
       .from("dining_halls")
       .select("*")
@@ -94,6 +95,7 @@ export async function getFoodsByDiningHall(
   diningHallId: number
 ): Promise<FoodItem[]> {
   try {
+    const supabase = createClient();
     const { data, error } = await supabase
       .from("food_items")
       .select("*")
@@ -115,6 +117,7 @@ export async function getFoodsByDiningHall(
 
 export async function getCommonFoodItems(): Promise<FoodItem[]> {
   try {
+    const supabase = createClient();
     const { data, error } = await supabase
       .from("food_items")
       .select("*")
@@ -138,6 +141,7 @@ export async function createMeal(
   foodItems: { food_item_id: number; quantity: number }[]
 ): Promise<number | null> {
   try {
+    const supabase = createClient();
     // Insert the meal
     const { data: mealData, error: mealError } = await supabase
       .from("meals")
@@ -181,6 +185,7 @@ export async function getUserMeals(
   limit = 10
 ): Promise<MealWithFoodItems[]> {
   try {
+    const supabase = createClient();
     // First get the meals
     const { data: meals, error: mealsError } = await supabase
       .from("meals")
@@ -247,31 +252,52 @@ export async function getDailyNutritionSummary(
   date: string
 ): Promise<DailyNutritionSummary | null> {
   try {
+    const supabase = createClient();
     const { data, error } = await supabase
-      .from("daily_nutrition_summary")
-      .select("*")
+      .from("meals")
+      .select(
+        `
+        meal_food_items(
+          quantity,
+          food_item:food_items(
+            calories,
+            protein,
+            carbs,
+            fat
+          )
+        )
+      `
+      )
       .eq("user_id", userId)
-      .eq("meal_date", date)
-      .single();
+      .eq("meal_date", date);
 
     if (error) {
-      if (error.code === "PGRST116") {
-        // No data found for this date
-        return {
-          meal_date: date,
-          total_calories: 0,
-          total_protein: 0,
-          total_carbs: 0,
-          total_fat: 0,
-        };
-      }
-      console.error("Error fetching daily nutrition summary:", error);
+      console.error("Error fetching nutrition summary:", error);
       return null;
     }
 
-    return data;
+    const summary: DailyNutritionSummary = {
+      meal_date: date,
+      total_calories: 0,
+      total_protein: 0,
+      total_carbs: 0,
+      total_fat: 0,
+    };
+
+    data.forEach((meal) => {
+      meal.meal_food_items.forEach((item: any) => {
+        const food = item.food_item;
+        const quantity = item.quantity;
+        summary.total_calories += food.calories * quantity;
+        summary.total_protein += food.protein * quantity;
+        summary.total_carbs += food.carbs * quantity;
+        summary.total_fat += food.fat * quantity;
+      });
+    });
+
+    return summary;
   } catch (error) {
-    console.error("Error fetching daily nutrition summary:", error);
+    console.error("Error calculating nutrition summary:", error);
     return null;
   }
 }
@@ -280,6 +306,7 @@ export async function createCustomFoodItem(
   foodItem: Omit<FoodItem, "id" | "created_at" | "updated_at">
 ): Promise<FoodItem | null> {
   try {
+    const supabase = createClient();
     const { data, error } = await supabase
       .from("food_items")
       .insert(foodItem)
@@ -295,5 +322,81 @@ export async function createCustomFoodItem(
   } catch (error) {
     console.error("Error creating custom food item:", error);
     return null;
+  }
+}
+
+export async function getUserWeightEntries(userId: string): Promise<WeightEntry[]> {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("weight_logs")
+      .select("*")
+      .eq("user_id", userId)
+      .order("date", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching weight entries:", error);
+      throw new Error(`Failed to fetch weight entries: ${error.message}`);
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("Error in getUserWeightEntries:", error);
+    throw error;
+  }
+}
+
+export async function saveWeightEntry(userId: string, weight: number): Promise<WeightEntry | null> {
+  try {
+    const supabase = createClient();
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+
+    // Check if an entry already exists for today
+    const { data: existingEntry } = await supabase
+      .from('weight_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('date', today)
+      .single();
+
+    if (existingEntry) {
+      // Update existing entry
+      const { data, error } = await supabase
+        .from('weight_logs')
+        .update({ weight })
+        .eq('id', existingEntry.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating weight entry:', error);
+        throw new Error(`Failed to update weight entry: ${error.message}`);
+      }
+
+      return data;
+    } else {
+      // Create new entry
+      const { data, error } = await supabase
+        .from('weight_logs')
+        .insert([
+          {
+            user_id: userId,
+            weight,
+            date: today,
+          },
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating weight entry:', error);
+        throw new Error(`Failed to create weight entry: ${error.message}`);
+      }
+
+      return data;
+    }
+  } catch (error) {
+    console.error('Error in saveWeightEntry:', error);
+    throw error;
   }
 }

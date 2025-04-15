@@ -1,17 +1,31 @@
 "use client"
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
+import { type WeightEntry } from "@/lib/supabase"
+import { format, parseISO } from "date-fns"
 
-export function WeightChart() {
-  const data = [
-    { date: "Mar 19", weight: 167.5 },
-    { date: "Mar 20", weight: 167.0 },
-    { date: "Mar 21", weight: 166.5 },
-    { date: "Mar 22", weight: 166.0 },
-    { date: "Mar 23", weight: 165.5 },
-    { date: "Mar 24", weight: 165.0 },
-    { date: "Mar 25", weight: 165.0 },
-  ]
+interface WeightChartProps {
+  weightEntries: WeightEntry[]
+}
+
+export function WeightChart({ weightEntries }: WeightChartProps) {
+  // Format the data for the chart
+  const data = weightEntries
+    .slice(0, 7) // Get the last 7 entries
+    .reverse() // Reverse to show oldest to newest
+    .map(entry => ({
+      date: format(parseISO(entry.date), "MMM d"),
+      weight: entry.weight
+    }))
+
+  // If no data, show a message
+  if (data.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">No weight data available yet.</p>
+      </div>
+    )
+  }
 
   return (
     <ResponsiveContainer width="100%" height="100%">
