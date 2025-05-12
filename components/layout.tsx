@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useRouter } from "next/navigation"
-import { Home, UtensilsCrossed, Weight, SettingsIcon, LogOut } from "lucide-react"
+import { Home, UtensilsCrossed, Weight, Settings as SettingsIcon, LogOut, Bed, Wine, Pill, Footprints } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClient } from "@/utils/supabase/client"
@@ -27,6 +27,10 @@ export function Layout({ children, activeTab, setActiveTab, isMobile }: LayoutPr
     { id: "dashboard", label: "Home", icon: <Home className="h-5 w-5" /> },
     { id: "log-food", label: "Log Food", icon: <UtensilsCrossed className="h-5 w-5" /> },
     { id: "weigh-in", label: "Weigh In", icon: <Weight className="h-5 w-5" /> },
+    { id: "record-sleep", label: "Record Sleep", icon: <Bed className="h-5 w-5" /> },
+    { id: "count-steps", label: "Count Steps", icon: <Footprints className="h-5 w-5" /> },
+    { id: "alcohol-facts", label: "Alcohol Safety", icon: <Wine className="h-5 w-5" /> },
+    { id: "drug-facts", label: "Drug Awareness", icon: <Pill className="h-5 w-5" /> },
     { id: "settings", label: "Settings", icon: <SettingsIcon className="h-5 w-5" /> },
   ]
 
@@ -68,7 +72,7 @@ export function Layout({ children, activeTab, setActiveTab, isMobile }: LayoutPr
       {isMobile && (
         <footer className="border-t bg-background">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid grid-cols-4 h-16">
+            <TabsList className="grid grid-cols-5 h-16">
               {tabs.map((tab) => (
                 <TabsTrigger
                   key={tab.id}

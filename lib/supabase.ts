@@ -70,6 +70,15 @@ export type WeightEntry = {
   created_at: string;
 };
 
+export type SleepEntry = {
+  id: string;
+  user_id: string;
+  sleep: number;
+  sleep_quality: number;
+  date: string;
+  created_at: string;
+};
+
 // API functions
 export async function getDiningHalls(): Promise<DiningHall[]> {
   try {
@@ -400,3 +409,173 @@ export async function saveWeightEntry(userId: string, weight: number): Promise<W
     throw error;
   }
 }
+
+export async function getUserSleepEntries(userId: string): Promise<SleepEntry[] | null> {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('sleep_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching sleep entries:', error);
+      return null;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getUserSleepEntries:', error);
+    return null;
+  }
+}
+
+export async function saveSleepEntry(
+  userId: string, 
+  sleep: number,
+  sleepQuality: number
+): Promise<SleepEntry | null> {
+  try {
+    const supabase = createClient();
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+
+    const { data: existingEntry } = await supabase
+      .from('sleep_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('date', today)
+      .single();
+
+    if (existingEntry) {
+      // Update existing entry
+      const { data, error } = await supabase
+        .from('sleep_logs')
+        .update({ sleep, sleep_quality: sleepQuality })
+        .eq('id', existingEntry.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating sleep entry:', error);
+        return null;
+      }
+
+      return data;
+    } else {
+      // Create new entry
+      const { data, error } = await supabase
+        .from('sleep_logs')
+        .insert([
+          {
+            user_id: userId,
+            sleep,
+            sleep_quality: sleepQuality,
+            date: today,
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating sleep entry:', error);
+        return null;
+      }
+
+      return data;
+    }
+  } catch (error) {
+    console.error('Error in saveSleepEntry:', error);
+    return null;
+  }
+}
+
+
+export type StepsEntry = {
+  id: string;
+  user_id: string;
+  steps: number;
+  steps_quality: number;
+  date: string;
+  created_at: string;
+};
+
+export async function getUserStepsEntries(userId: string): Promise<StepsEntry[] | null> {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('steps_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching steps entries:', error);
+      return null;
+    }
+
+    return data || [];
+  } catch (error: unknown) {
+    console.error('Error in getUserStepsEntries:', error);
+    return null;
+  }
+}
+
+export async function saveStepsEntry(
+  userId: string, 
+  steps: number,
+  stepsQuality: number
+): Promise<StepsEntry | null> {
+  try {
+    const supabase = createClient();
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+
+    const { data: existingEntry } = await supabase
+      .from('steps_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('date', today)
+      .single();
+
+    if (existingEntry) {
+      // Update existing entry
+      const { data, error } = await supabase
+        .from('steps_logs')
+        .update({ steps, steps_quality: stepsQuality })
+        .eq('id', existingEntry.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating steps entry:', error);
+        return null;
+      }
+
+      return data;
+    } else {
+      // Create new entry
+      const { data, error } = await supabase
+        .from('steps_logs')
+        .insert([
+          {
+            user_id: userId,
+            steps,
+            steps_quality: stepsQuality,
+            date: today,
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating steps entry:', error);
+        return null;
+      }
+
+      return data;
+    }
+  } catch (error: unknown) {
+    console.error('Error in saveStepsEntry:', error);
+    return null;
+  }
+} 

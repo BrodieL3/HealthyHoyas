@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { UtensilsCrossed, Weight, Footprints, Moon, ArrowRight, AlertCircle } from "lucide-react"
+import { UtensilsCrossed, Weight, Footprints, Moon, ArrowRight, AlertCircle, Bed } from "lucide-react"
 import { MacroChart } from "@/components/macro-chart"
 import {
   getUserMeals,
@@ -202,7 +202,7 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">7.5 hrs</div>
-            <div className="text-xs text-muted-foreground">Goal: 8 hours</div>
+            <div className="text-xs text-muted-foreground">Goal: 8 hrs</div>
             <div className="mt-1 h-2 w-full rounded-full bg-muted">
               <div className="h-full w-[94%] rounded-full bg-blue-500"></div>
             </div>
@@ -212,16 +212,17 @@ export function Dashboard() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center">
-              <Weight className="mr-2 h-4 w-4" />
-              Current Weight
+              <Bed className="mr-2 h-4 w-4" />
+              Record Sleep
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">165 lbs</div>
-            <div className="text-xs text-muted-foreground">Goal: 160 lbs</div>
-            <div className="flex items-center text-xs text-green-500 mt-1">
-              <span>↓ 0.5 lbs from last week</span>
-            </div>
+            <Button variant="outline" className="w-full" asChild>
+              <a href="/record-sleep">
+                Record Sleep
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </a>
+            </Button>
           </CardContent>
         </Card>
       </div>
