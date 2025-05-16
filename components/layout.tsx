@@ -31,7 +31,9 @@ export function Layout({ children, activeTab, setActiveTab, isMobile }: LayoutPr
     { id: "count-steps", label: "Count Steps", icon: <Footprints className="h-5 w-5" /> },
     { id: "alcohol-facts", label: "Alcohol Safety", icon: <Wine className="h-5 w-5" /> },
     { id: "drug-facts", label: "Drug Awareness", icon: <Pill className="h-5 w-5" /> },
-    { id: "settings", label: "Settings", icon: <SettingsIcon className="h-5 w-5" /> },
+    { id: "BMI", label: "BMI / Calorie Calculator", icon: <Pill className="h-5 w-5" /> },
+    { id: "Goal-setting", label: "Set Goals", icon: <Pill className="h-5 w-5" /> },
+    // { id: "settings", label: "Settings", icon: <SettingsIcon className="h-5 w-5" />},
   ]
 
   return (
@@ -40,7 +42,7 @@ export function Layout({ children, activeTab, setActiveTab, isMobile }: LayoutPr
         <header className="border-b">
           <div className="container flex h-16 items-center justify-between px-4">
             <div className="flex items-center">
-              <div className="mr-4 font-semibold text-lg">NutriTrack</div>
+              <div className="mr-4 font-semibold text-lg">Healthy Hoyas</div>
               <nav className="flex items-center space-x-4 lg:space-x-6">
                 {tabs.map((tab) => (
                   <Button

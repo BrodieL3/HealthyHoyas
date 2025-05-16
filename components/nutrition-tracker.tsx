@@ -11,6 +11,8 @@ import { Layout } from "@/components/layout"
 import AlcoholFactsPage from "./alcohol-facts"
 import DrugAwarenessPage from "./drug-facts"
 import { LogSteps } from "./count-steps"
+import BMICalculator from "./BMI-calculator"
+import GoalSetter from "./Goal-setting"
 
 export function NutritionTracker() {
   const [activeTab, setActiveTab] = useState("dashboard")
@@ -25,7 +27,9 @@ export function NutritionTracker() {
       {activeTab === "count-steps" && <LogSteps />}
       {activeTab === "alcohol-facts" && <AlcoholFactsPage />}
       {activeTab === "drug-facts" && <DrugAwarenessPage />}
-      {activeTab === "settings" && <Settings />}
+      {activeTab === "BMI" && <BMICalculator />} 
+      {activeTab === "Goal-setting" && <GoalSetter />}
+      {/* activeTab === "settings" && <Settings /> */}
     </Layout>
   )
 } 

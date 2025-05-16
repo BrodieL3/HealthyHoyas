@@ -107,11 +107,11 @@ export function LogSteps() {
 
             return (
                 <div className="max-w-md mx-auto">
-                  <h1 className="text-2xl font-bold tracking-tight mb-6">Log Sleep</h1>
+                  <h1 className="text-2xl font-bold tracking-tight mb-6">Count Steps</h1>
             
                   <Card className="mb-6">
                     <CardHeader>
-                      <CardTitle>Record Your Sleep</CardTitle>
+                      <CardTitle>Record Your Steps</CardTitle>
                       <CardDescription>Keep track of your movement patterns by logging your steps and how you felt.</CardDescription>
                     </CardHeader>
                     <CardContent>

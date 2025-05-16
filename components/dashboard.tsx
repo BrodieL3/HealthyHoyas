@@ -10,6 +10,12 @@ import {
   getDailyNutritionSummary,
   type MealWithFoodItems,
   type DailyNutritionSummary,
+  StepsEntry,
+  getUserStepsEntries,
+  SleepEntry,
+  getUserSleepEntries,
+  WeightEntry,
+  getUserWeightEntries,
 } from "@/lib/supabase"
 import { format, parseISO } from "date-fns"
 import { createClient } from "@/utils/supabase/client"
@@ -19,6 +25,12 @@ export function Dashboard() {
   const [nutritionSummary, setNutritionSummary] = useState<DailyNutritionSummary | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const [stepsEntries, setStepsEntries] = useState<StepsEntry[]>([])
+
+  const [sleepEntries, setSleepEntries] = useState<SleepEntry[]>([])
+
+  const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([])
 
   useEffect(() => {
     async function fetchDashboardData() {
@@ -51,6 +63,101 @@ export function Dashboard() {
 
     fetchDashboardData()
   }, [])
+
+  useEffect(() => {
+    async function fetchStepsEntries() {
+        try {
+            setError(null)
+            const supabase = createClient()
+
+            const {data: {user}} = await supabase.auth.getUser()
+
+            if (!user) {
+                setError("Please sign in to view steps")
+                return
+            }
+
+            const entries = await getUserStepsEntries(user.id)
+
+            setStepsEntries(entries || [])
+
+        } catch(error) {
+            console.error("Error fetching sleep entries:", error)
+            setError("Failed to load sleep history. Please try again later.")
+        } 
+    
+        }
+
+        fetchStepsEntries()
+    }, [])
+
+    const mostRecentSteps = stepsEntries
+      .slice()
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+
+
+    useEffect(() => {
+      async function fetchSleepEntries() {
+        try {
+          setError(null)
+          const supabase = createClient()
+          const { data: { user } } = await supabase.auth.getUser()
+  
+          if (!user) {
+            setError("Please sign in to view sleep entry") 
+            return
+          }
+  
+          const entries = await getUserSleepEntries(user.id)
+          setSleepEntries(entries || [])
+        } catch(error) {
+          console.error("Error fetching sleep entries:", error)
+          setError("Failed to load sleep history. Please try again later.")
+        }
+      }
+  
+      fetchSleepEntries()
+    }, [])
+
+    const mostRecentSleep = sleepEntries
+      .slice()
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+      const getQualityColor = (quality: number) => {
+        if (quality >= 8) return 'text-green-600';
+        if (quality >= 5) return 'text-yellow-600';
+        return 'text-red-600';
+      };
+
+
+    useEffect(() => {
+      async function fetchWeightEntries() {
+        try {
+          setError(null)
+          const supabase = createClient()
+          const { data: { user } } = await supabase.auth.getUser()
+          
+          if (!user) {
+            setError("Please sign in to view your weight history")
+            return
+          }
+  
+          const entries = await getUserWeightEntries(user.id)
+          setWeightEntries(entries)
+        } catch (error) {
+          console.error("Error fetching weight entries:", error)
+          setError("Failed to load weight history. Please try again later.")
+        }
+      }
+  
+      fetchWeightEntries()
+    }, [])
+
+
+    const mostRecentWeight = weightEntries
+      .slice()
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
 
   if (isLoading) {
     return <div>Loading...</div>
@@ -176,55 +283,100 @@ export function Dashboard() {
       </Card>
 
       <h2 className="text-xl font-semibold mt-6">Activity Summary</h2>
+
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center">
-              <Footprints className="mr-2 h-4 w-4" />
-              Steps
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">7,842</div>
-            <div className="text-xs text-muted-foreground">Goal: 10,000</div>
-            <div className="mt-1 h-2 w-full rounded-full bg-muted">
-              <div className="h-full w-[78%] rounded-full bg-green-500"></div>
+         <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center">
+            <Footprints className="mr-2 h-4 w-4" />
+            Most Recent Steps
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {mostRecentSteps ? (
+            <div className="text-sm text-gray-700 space-y-1">
+              <div className="flex justify-between items-center">
+                <span>Steps:</span>
+                <span>{mostRecentSteps.steps.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Quality (1–10):</span>
+                <span className={getQualityColor(mostRecentSteps.steps_quality)}>
+                  {mostRecentSteps.steps_quality}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-xs text-muted-foreground pt-2">
+                <span>Date:</span>
+                <span>{format(new Date(mostRecentSteps.date), "MMM d, yyyy")}</span>
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          ) : (
+            <p className="text-sm text-muted-foreground">No step data available.</p>
+          )}
+          <Button variant="outline" className="w-full mt-4" asChild>
+            <a href="/count-steps"> 
+            {/*Decide if we want button here as well or not*/}
+              Record Steps
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </a>
+          </Button>
+        </CardContent>
+      </Card>
+
+         <Card className="mb-6">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center">
+            <Bed className="mr-2 h-4 w-4" />
+            Most Recent Sleep
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {mostRecentSleep ? (
+            <div className="text-sm text-gray-700 space-y-1">
+              <div className="flex justify-between items-center">
+                <span>Slept:</span>
+                <span>{mostRecentSleep.sleep} hours</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Quality (1–10):</span>
+                <span className={getQualityColor(mostRecentSleep.sleep_quality)}>
+                  {mostRecentSleep.sleep_quality}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-xs text-muted-foreground pt-2">
+                <span>Date:</span>
+                <span>{format(new Date(mostRecentSleep.date), "MMM d, yyyy")}</span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No sleep data available.</p>
+          )}
+        </CardContent>
+      </Card>
 
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center">
-              <Moon className="mr-2 h-4 w-4" />
-              Sleep
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">7.5 hrs</div>
-            <div className="text-xs text-muted-foreground">Goal: 8 hrs</div>
-            <div className="mt-1 h-2 w-full rounded-full bg-muted">
-              <div className="h-full w-[94%] rounded-full bg-blue-500"></div>
-            </div>
-          </CardContent>
-        </Card>
+  <CardHeader className="pb-2">
+    <CardTitle className="text-base flex items-center">
+      <Weight className="mr-2 h-4 w-4" />
+      Most Recent Weight
+    </CardTitle>
+  </CardHeader>
+  <CardContent>
+    {mostRecentWeight ? (
+      <div className="text-sm text-gray-700 flex justify-between items-center">
+        <span>
+          {mostRecentWeight.weight} lbs
+        </span>
+        <span className="text-xs text-muted-foreground">
+          {format(new Date(mostRecentWeight.date), "MMM d, yyyy")}
+        </span>
+      </div>
+    ) : (
+      <p className="text-sm text-muted-foreground">No weight entries found.</p>
+    )}
+  </CardContent>
+</Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center">
-              <Bed className="mr-2 h-4 w-4" />
-              Record Sleep
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button variant="outline" className="w-full" asChild>
-              <a href="/record-sleep">
-                Record Sleep
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </a>
-            </Button>
-          </CardContent>
-        </Card>
       </div>
     </div>
   )

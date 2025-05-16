@@ -10,8 +10,10 @@ interface SleepChartProps {
 
 export function SleepChart({sleepEntries}: SleepChartProps) {
     const data = sleepEntries
-        .slice(0,7)
-        .reverse()
+        .slice() // make a shallow copy so we don't mutate the original
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) // newest to oldest
+        .slice(0, 7) // get the most recent 7
+        .reverse()  // so they go from oldest to newest for chart x-axis
         .map(entry => ({
             date: format(parseISO(entry.date), "MMM d"),
             sleep: entry.sleep,
